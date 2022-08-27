@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using API.Data;
 using API.Models;
 using System.Security.Cryptography;
@@ -7,6 +6,8 @@ using System.Text;
 using API.DTOs;
 using Microsoft.EntityFrameworkCore;
 using API.Interfaces;
+using AutoMapper.QueryableExtensions;
+using AutoMapper;
 
 namespace API.Controllers
 {
@@ -14,10 +15,12 @@ namespace API.Controllers
     {
         private readonly DataContext _context;
         private readonly ITokenService _tokenService;
-        public AccountController(DataContext context, ITokenService tokenService)
+        private readonly IMapper _mapper;
+        public AccountController(DataContext context, ITokenService tokenService, IMapper mapper)
         {
             _context = context;
             _tokenService = tokenService;
+            _mapper = mapper;
         }
 
         [HttpPost("register")]
@@ -34,7 +37,14 @@ namespace API.Controllers
             {
                 UserName = registerDto.Username.ToLower(),
                 PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDto.Password)),
-                PasswordSalt = hmac.Key
+                PasswordSalt = hmac.Key,
+                KnownAs = registerDto.KnownAs,
+                Gender = registerDto.Gender,
+                Introduction = registerDto.Introduction,
+                LookingFor = registerDto.LookingFor,
+                Interests = registerDto.Interests,
+                City = registerDto.City,
+                Country = registerDto.Country
             };
 
             _context.Users.Add(user);
@@ -52,7 +62,9 @@ namespace API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
-            var user = _context.Users.SingleOrDefault(x => x.UserName == loginDto.Username);
+            var user = _context.Users
+                .Include(p => p.Photos)
+                .SingleOrDefault(x => x.UserName == loginDto.Username);
 
             if (user == null)
             {
